@@ -1,9 +1,9 @@
 package com.louvre2489
 
 import akka.actor.typed.scaladsl.Behaviors
-import akka.actor.typed.{ ActorRef, Behavior }
-import akka.persistence.typed.scaladsl.{ Effect, EventSourcedBehavior }
-import akka.persistence.typed.{ PersistenceId, RecoveryCompleted }
+import akka.actor.typed.{ActorRef, Behavior}
+import akka.persistence.typed.scaladsl.{Effect, EventSourcedBehavior}
+import akka.persistence.typed._
 
 object Calculator {
 
@@ -79,9 +79,16 @@ object Calculator {
       emptyState = CalculationResult(),
       commandHandler = commandHandler,
       eventHandler = eventHandler
-    ).receiveSignal {
-      case (state, RecoveryCompleted) =>
-        println(s"RecoveryCompleted!![$state]")
-    }
+    ).snapshotWhen {
+        case (_, Subtracted(_), _) => true
+        case _                     => false
+      }.receiveSignal {
+        case (state, RecoveryCompleted) =>
+          println(s"RecoveryCompleted!![$state]")
+        case (_, _:SnapshotCompleted) =>
+          println(s"SnapshotCompleted!!")
+        case (_, _:SnapshotFailed) =>
+          println(s"SnapshotFailed!!")
+      }
 
 }
