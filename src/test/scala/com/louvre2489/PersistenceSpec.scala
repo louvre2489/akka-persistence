@@ -5,36 +5,41 @@ import java.io.File
 import com.typesafe.config._
 
 import scala.util._
-import akka.actor.typed.{ActorRef, ActorSystem}
-import akka.actor.testkit.typed.scaladsl.ActorTestKit
+import akka.actor.typed.{ActorRef, ActorSystem, Scheduler}
 import akka.actor.testkit.typed.scaladsl.{LogCapturing, ScalaTestWithActorTestKit}
+import akka.actor.typed.scaladsl.AskPattern.Askable
 import akka.persistence.testkit.scaladsl.EventSourcedBehaviorTestKit
+import akka.util.Timeout
 import org.apache.commons.io.FileUtils
 import org.scalatest._
-import org.scalatest.wordspec.AnyWordSpecLike
+import org.scalatest.wordspec.AsyncWordSpecLike
 
-abstract class PersistenceSpec
+import scala.concurrent.Await
+import scala.concurrent.duration.Duration
+
+abstract class PersistenceSpec(system: ActorSystem[Nothing])
     extends ScalaTestWithActorTestKit(EventSourcedBehaviorTestKit.config)
-    with AnyWordSpecLike
+    with AsyncWordSpecLike
     with BeforeAndAfterEach
     with LogCapturing
     with PersistenceCleanup {
 
-  private val eventSourcedTestKit =
-    EventSourcedBehaviorTestKit[Calculator.Command, Calculator.Event, Calculator.CalculationResult](
-      system,
-      Calculator("test"))
+//  private val eventSourcedTestKit =
+//    EventSourcedBehaviorTestKit[Calculator.Command, Calculator.Event, Calculator.CalculationResult](
+//      system,
+//      Calculator("test"))
 
-//  def this(name: String, config: Config) = this(ActorSystem(name, config))
-  override protected def beforeAll() = deleteStorageLocations()
+  override protected def beforeAll() = deleteStorageLocations("BEFORE ALL")
 
   override protected def afterAll() = {
-    deleteStorageLocations()
-    ActorTestKit.shutdown(system)
+    deleteStorageLocations("AFTER ALL")
+    system.terminate()
   }
 
-  def killActors(actor: ActorSystem[Calculator.Command]) = {
-    ActorTestKit.shutdown(system)
+  def killActors(as: ActorRef[Calculator.Command])(implicit timeout: Timeout, scheduler: Scheduler) = {
+
+    val f = as.ask(replyTo => Calculator.Stop(replyTo))
+    Await.result(f, Duration.Inf)
   }
 }
 
@@ -43,16 +48,17 @@ trait PersistenceCleanup {
 
   def system: ActorSystem[Nothing]
 
-  val storageLocations = List("akka.persistence.journal.leveldb.dir",
-                              "akka.persistence.journal.leveldb-shared.store.dir",
-                              "akka.persistence.snapshot-store.local.dir").map { s =>
+  private val storageLocations = List("akka.persistence.journal.leveldb.dir",
+                                      "akka.persistence.journal.leveldb-shared.store.dir",
+                                      "akka.persistence.snapshot-store.local.dir").map { s =>
     new File(config.getString(s))
   }
 
-  def deleteStorageLocations(): Unit = {
+  def deleteStorageLocations(msg: String): Unit = {
+    println(msg)
     storageLocations.foreach { dir =>
-      Try(FileUtils.deleteDirectory(dir))
-      println(dir.getAbsolutePath)
+      if (dir.exists())
+        Try(FileUtils.deleteDirectory(dir))
     }
   }
 }

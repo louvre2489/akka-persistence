@@ -8,14 +8,16 @@ import akka.persistence.typed.{ PersistenceId, RecoveryCompleted }
 object Calculator {
 
   sealed trait Command
-  final case class Add(value: Double)                   extends Command
-  final case class Subtract(value: Double)              extends Command
-  final case class Divide(value: Double)                extends Command
-  final case class Multiply(value: Double)              extends Command
-  final case class GetResult(replyTo: ActorRef[Double]) extends Command
-  case object Clear                                     extends Command
-  case object PrintResult                               extends Command
-  case object Stop                                      extends Command
+  final case class Add(value: Double)                    extends Command
+  final case class Subtract(value: Double)               extends Command
+  final case class Divide(value: Double)                 extends Command
+  final case class Multiply(value: Double)               extends Command
+  final case class GetResult(replyTo: ActorRef[Double])  extends Command
+  case object Clear                                      extends Command
+  case object PrintResult                                extends Command
+  final case class Stop(replyTo: ActorRef[Stopped.type]) extends Command
+
+  case object Stopped
 
   sealed trait Event
   case object Reset                          extends Event
@@ -53,8 +55,10 @@ object Calculator {
         Effect.none
       case Clear =>
         Effect.persist(Reset)
-      case Stop =>
+      case Stop(replyTo) =>
+        println("Actor Stopping...")
         Behaviors.stopped
+        replyTo ! Stopped
         Effect.none
     }
   }

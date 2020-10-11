@@ -3,32 +3,38 @@ package com.louvre2489
 import akka.actor.typed.ActorSystem
 import akka.actor.typed.scaladsl.AskPattern.Askable
 import akka.util.Timeout
-import akka.actor.testkit.typed.scaladsl.TestProbe
-import org.scalactic.TypeCheckedTripleEquals.convertToCheckingEqualizer
-import org.scalatest._
 
-import scala.concurrent.Await
 import scala.concurrent.duration.{Duration, FiniteDuration}
-import scala.util.{Failure, Success}
 
-class CalculatorSpec extends PersistenceSpec with PersistenceCleanup {
+class CalculatorSpec extends PersistenceSpec(ActorSystem(Calculator("test"), "CalculatorSpec")) with PersistenceCleanup {
 
   "The Calculator" should {
     "recover last known result after crash" in {
 
-      val system = ActorSystem(Calculator("test"), "test")
+      val calc = Calculator("test")
+      val actor = system.systemActorOf(calc, "test")
 
       implicit val ec        = system.executionContext
       implicit val timeout   = requestTimeout
       implicit val scheduler = system.scheduler
 
-      system ! Calculator.Add(1)
-      val f = system.ask(replyTo => Calculator.GetResult(replyTo))
-      val r = Await.result(f, Duration.Inf)
+      actor ! Calculator.Add(1)
+      actor ! Calculator.Add(2)
+      actor
+        .ask(replyTo => Calculator.GetResult(replyTo))
+        .map(result => assert(result == 3))
 
-      r shouldBe 1
+      // Actorを停止させる
+      killActors(actor)
 
-//      killActors(system)
+      // 別Actorを生成する
+      // この時にリカバリが発生していることがログからわかる
+      //   RecoveryCompleted!![CalculationResult(3.0)]
+      val reCreatedActor = system.systemActorOf(calc, "test2")
+      reCreatedActor ! Calculator.Add(10)
+      reCreatedActor
+        .ask(replyTo => Calculator.GetResult(replyTo))
+        .map(result => assert(result == 13))
     }
   }
 
