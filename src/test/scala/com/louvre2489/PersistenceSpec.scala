@@ -18,7 +18,7 @@ import scala.concurrent.Await
 import scala.concurrent.duration.Duration
 
 abstract class PersistenceSpec(system: ActorSystem[Nothing])
-    extends ScalaTestWithActorTestKit(EventSourcedBehaviorTestKit.config)
+    extends ScalaTestWithActorTestKit(ConfigFactory.load())
     with AsyncWordSpecLike
     with BeforeAndAfterEach
     with LogCapturing

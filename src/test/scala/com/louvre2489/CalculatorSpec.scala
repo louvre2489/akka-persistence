@@ -19,6 +19,8 @@ class CalculatorSpec extends PersistenceSpec(ActorSystem(Calculator("test"), "Ca
       implicit val timeout   = requestTimeout
       implicit val scheduler = system.scheduler
 
+      actor ! Calculator.Clear
+
       actor ! Calculator.Add(1)
       actor ! Calculator.Add(2)
       actor
@@ -41,18 +43,20 @@ class CalculatorSpec extends PersistenceSpec(ActorSystem(Calculator("test"), "Ca
     "recover at last Subtracted" in {
 
       val calc = Calculator("test")
-      val actor = system.systemActorOf(calc, "test")
+      val actor = system.systemActorOf(calc, "test3")
 
       implicit val ec        = system.executionContext
       implicit val timeout   = requestTimeout
       implicit val scheduler = system.scheduler
+
+      actor ! Calculator.Clear
 
       actor ! Calculator.Add(10)
 
       // Actorを停止させる
       killActors(actor)
 
-      val reCreatedActor = system.systemActorOf(calc, "test2")
+      val reCreatedActor = system.systemActorOf(calc, "test4")
       reCreatedActor ! Subtract(7)
       reCreatedActor ! Calculator.Add(1)
       reCreatedActor
