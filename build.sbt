@@ -7,6 +7,7 @@ scalaVersion := "2.13.3"
 val AkkaVersion = "2.6.10"
 libraryDependencies ++= Seq(
   "com.typesafe.akka"         %% "akka-persistence-typed"   % AkkaVersion,
+  "com.typesafe.akka"         %% "akka-persistence-query"   % AkkaVersion,
   "com.typesafe.akka"         %% "akka-persistence-testkit" % AkkaVersion % Test,
   "io.altoo"                  %% "akka-kryo-serialization"  % "1.1.5",
   "org.iq80.leveldb"          % "leveldb"                   % "0.12",
