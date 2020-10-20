@@ -3,15 +3,16 @@ package com.louvre2489
 import akka.NotUsed
 import akka.actor.typed.ActorSystem
 import akka.actor.typed.scaladsl.AskPattern.Askable
-import akka.persistence.query.{EventEnvelope, PersistenceQuery}
-import akka.persistence.query.journal.leveldb.scaladsl.LeveldbReadJournal
+import akka.persistence.cassandra.query.scaladsl.CassandraReadJournal
+import akka.persistence.query.{Offset, PersistenceQuery}
 import akka.stream.scaladsl.{Sink, Source}
+
+import scala.concurrent.{Await, Future}
 import akka.util.Timeout
 import com.louvre2489.Calculator._
 
-import scala.concurrent.{Await, Future}
-import scala.concurrent.duration.{Duration, FiniteDuration}
-import scala.util.{Failure, Success}
+import scala.concurrent.duration.{ Duration, FiniteDuration }
+import scala.util.{ Failure, Success }
 
 object Main extends App {
 
@@ -46,6 +47,7 @@ object Main extends App {
   }
 
   system ! Clear
+  system ! Add(6)
   system.ask(replyTo => GetResult(replyTo)).onComplete {
     case Success(value) =>
       println(s"answer for asking: $value")
@@ -55,18 +57,17 @@ object Main extends App {
   }
 
   val queries =
-    PersistenceQuery(system).readJournalFor[LeveldbReadJournal](LeveldbReadJournal.Identifier)
+    PersistenceQuery(system).readJournalFor[CassandraReadJournal](CassandraReadJournal.Identifier)
 
-  val src: Source[EventEnvelope, NotUsed] =
-    queries.currentEventsByPersistenceId("sample")
+  val src = queries.currentEventsByTag("sample_tag", Offset.noOffset)
+//  val src = queries.currentEventsByPersistenceId("sample", 0, 50)
 
   val events: Source[Calculator.Event, NotUsed] =
     src.map(_.event.asInstanceOf[Calculator.Event])
 
-  implicit val sss = system
+  implicit val as = system
   val res: Future[Seq[Calculator.Event]] = events.runWith(Sink.seq)
 
-  Thread.sleep(3000L)
   println( Await.result(res, Duration.Inf))
 
   private def requestTimeout: Timeout = {
